@@ -1,4 +1,5 @@
-package de.jodamob.gradle
+package attx.pullrequest.gradle
+
 
 import org.gradle.api.Project
 

@@ -12,10 +12,46 @@ buildscript {
 apply plugin: "com.gradle.plugin-publish"
 apply plugin: "groovy"
 apply plugin: 'maven'
-apply plugin: 'signing'
+//apply plugin: 'signing'
 
-version = '1.0.RC2'
-group = 'de.jodamob.gradle'
+ext.version_nb = "1.6"
+
+version = "$version_nb"
+
+if (!project.hasProperty("env")) {
+    ext.artifactVersion = "${version_nb}-SNAPSHOT"
+} else if (project.env == "release"){
+    ext.artifactVersion = "${version_nb}"
+}
+
+ext {
+    imageRepo = "attx-dev"
+    imageRepoPort = "5000"
+    artifactRepoPort = "8081"
+    jenkinsPort = "49001"
+    pypiRepoPort = "5039"
+    groupID = "org.uh.hulib.attx.gradle"
+}
+
+if (!project.hasProperty("registryURL")) {
+    ext.registryURL = "http://${imageRepo}:${imageRepoPort}"
+}
+
+if (!project.hasProperty("artifactRepoURL")) {
+    ext.artifactRepoURL = "http://${imageRepo}:${artifactRepoPort}/repository/attx-releases"
+}
+
+if (!project.hasProperty("pypiURL")) {
+    ext.pypiURL = "http://${imageRepo}:${pypiRepoPort}/"
+}
+
+if (!project.hasProperty("artifactRepoUser")) {
+    ext.artifactRepoUser = ""
+}
+
+if (!project.hasProperty("artifactRepoPassword")) {
+    ext.artifactRepoPassword = ""
+}
 
 repositories {
     mavenLocal()
@@ -45,59 +81,34 @@ artifacts {
     archives sourcesJar
 }
 
-signing {
-    sign configurations.archives
-}
+//signing {
+//    sign configurations.archives
+//}
 
-pluginBundle {
-    website = 'https://github.com/dpreussler/gradle-pullrequest-builder'
-    vcsUrl = 'https://github.com/dpreussler/gradle-pullrequest-builder.git'
-    description = 'Gradle plugin to commit, push local files xand create pull request on github'
-    tags = ['git', 'github']
-
-    plugins {
-        PullRequestBuilderPlugin {
-            id = 'de.jodamob.gradle.github'
-            displayName = 'Gradle Github PullRequest builder'
-        }
-    }
-}
+//pluginBundle {
+//    website = 'https://github.com/dpreussler/gradle-pullrequest-builder'
+//    vcsUrl = 'https://github.com/dpreussler/gradle-pullrequest-builder.git'
+//    description = 'Gradle plugin to commit, push local files xand create pull request on github'
+//    tags = ['git', 'github']
+//
+//    plugins {
+//        PullRequestBuilderPlugin {
+//            id = 'attx.dev.gradle.github'
+//            displayName = 'Gradle Github PullRequest builder'
+//        }
+//    }
+//}
 
 uploadArchives {
     repositories {
         mavenDeployer {
-            beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
-
-            repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
-                authentication(userName: sonatypeUsername, password: sonatypePassword)
+            repository(url: "${artifactRepoURL}") {
+                authentication(userName: "${artifactRepoUser}", password: "${artifactRepoPassword}")
             }
-
             pom.project {
-                name 'gradle-pullrequest-builder'
-                packaging 'jar'
-                description 'Gradle plugin to commit, push local files xand create pull request on github'
-                url 'https://github.com/dpreussler/gradle-pullrequest-builder'
-
-                scm {
-                    url 'https://github.com/dpreussler/gradle-pullrequest-builder.git'
-                    connection 'scm:git@github.com:dpreussler/gradle-pullrequest-builder.git'
-                    developerConnection 'scm:git@github.com:dpreussler/gradle-pullrequest-builder.git'
-                }
-
-                licenses {
-                    license {
-                        name 'The MIT License (MIT)'
-                        url 'https://github.com/dpreussler/gradle-pullrequest-builder/blob/master/LICENSE'
-                        distribution 'repo'
-                    }
-                }
-
-                developers {
-                    developer {
-                        id 'dpreussler'
-                        name 'Danny Preussler'
-                    }
-                }
+                version = "${artifactVersion}"
+                groupId = "${groupID}"
+                description "Gradle ATTX Pull Request Plugin."
             }
         }
     }

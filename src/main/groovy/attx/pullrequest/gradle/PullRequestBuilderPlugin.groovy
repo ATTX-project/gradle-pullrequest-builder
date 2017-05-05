@@ -1,4 +1,4 @@
-package de.jodamob.gradle
+package attx.pullrequest.gradle
 
 import com.github.kittinunf.fuel.Fuel
 import groovy.transform.PackageScope
@@ -13,6 +13,7 @@ class PullRequestBuilderPlugin implements Plugin<Project> {
 
     @PackageScope static final String GIT_TASK = 'gitCommit'
     @PackageScope static final String PR_TASK = 'gitPullRequest'
+    @PackageScope static final String DELETE_TASK = 'gitDeleteRequest'
     String branchName
 
     @Override
@@ -21,24 +22,53 @@ class PullRequestBuilderPlugin implements Plugin<Project> {
 
         Task git = createGitTask(project, extension)
         Task gitHub = createPullRequestTask(project, extension)
+        Task delete = deleteRequestTask(project, extension)
         gitHub.dependsOn git
     }
 
     private Task createGitTask(Project project, PullRequestBuilderExtension extension) {
         Task task = project.tasks.create(GIT_TASK)
         task.outputs.upToDateWhen { false }
+        def sout = new StringBuilder(), serr = new StringBuilder()
         task.with {
             group = 'publishing'
             description = 'Commits and pushes changes to git.'
             doFirst {
-                branchName = extension.branchSuffix + new Date().getTime().toString()
+                branchName = extension.branchSuffix
             }
             doLast {
-                "git branch ${branchName}".execute().waitFor()
-                "git checkout ${branchName}".execute().waitFor()
-                "git add ${extension.source}".execute().waitFor()
-                "git commit -m ${extension.message}".execute().waitFor()
-                "git push".execute().waitFor()
+                "git add .".execute().waitFor()
+                def components = ["${extension.message}"]
+                def cmd = ["git", "commit", "-m"]
+                for (component in components) {
+                    cmd.add(component)
+                }
+                def commit = cmd.execute()
+                commit.consumeProcessOutput(sout, serr)
+                commit.waitFor()
+                def push =  "git push -u origin ${branchName}".execute()
+                push.consumeProcessOutput(sout, serr)
+                push.waitFor()
+                println "out> $sout err> $serr"
+            }
+        }
+        return task
+    }
+
+    private Task deleteRequestTask(Project project, PullRequestBuilderExtension extension) {
+        Task task = project.tasks.create(DELETE_TASK)
+        task.outputs.upToDateWhen { false }
+        task.with {
+            group = 'publishing'
+            description = 'Deletes Pull request on github.'
+            doFirst {
+                branchName = extension.branchSuffix
+            }
+            doLast {
+                println Fuel.delete("${extension.githubUri.replaceAll("github.com", "api.github.com/repos") + "/git/refs/heads/" + "${branchName}" }")
+                        .authenticate("${extension.user}", "${extension.accessToken}")
+                        .header(new Pair<String, Object>("Content-Type", "application/json"))
+                        .response().toString()
             }
         }
         return task
@@ -51,6 +81,9 @@ class PullRequestBuilderPlugin implements Plugin<Project> {
             group = 'publishing'
             description = 'Creates Pull request on github.'
             onlyIf { dependsOnTaskDidWork() }
+            doFirst {
+                "git push".execute().waitFor()
+            }
             doLast {
                 println Fuel.post("${extension.githubUri.replaceAll("github.com", "api.github.com/repos") + "/pulls" }")
                 .authenticate("${extension.user}", "${extension.accessToken}")
