@@ -88,5 +88,4 @@ pipeline {
 }
 ```
 
-Licensed under MIT license
-(c) 2017 Danny Preussler
+Forked from https://github.com/dpreussler/gradle-pullrequest-builder which is: Licensed under MIT license (c) 2017 Danny Preussler
